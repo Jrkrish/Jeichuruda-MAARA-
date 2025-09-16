@@ -1,17 +1,29 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import os, requests
 
-# Load environment variables based on MCP Production Configuration
 API_KEY = os.getenv("CONTENTSTACK_API_KEY")
 DELIVERY_TOKEN = os.getenv("CONTENTSTACK_DELIVERY_TOKEN")
 ENVIRONMENT = os.getenv("CONTENTSTACK_ENVIRONMENT")
 BASE = os.getenv("CONTENTSTACK_BASE_URL", "https://eu-cdn.contentstack.com")
-CONTENT_TYPE = os.getenv("CS_CONTENT_TYPE", "product")  # Can still use this or define new one if needed
-BRANCH = "main"  # Hardcoded if not provided in the config
+CONTENT_TYPE = os.getenv("CS_CONTENT_TYPE", "product")
+BRANCH = "main"
 
 app = FastAPI()
+
+# ✅ Enable CORS for Contentstack UI
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://eu-app.contentstack.com",
+        "https://app.contentstack.com",
+        "https://azure-na-app.contentstack.com"
+    ],
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 class QueryBody(BaseModel):
     query: str
@@ -33,7 +45,7 @@ def contentstack_entries(q: str, limit: int) -> List[Dict[str, Any]]:
         "environment": ENVIRONMENT,
         "branch": BRANCH,
         "limit": limit,
-        "query": str(query_param).replace("'", '"')  # Convert to JSON string
+        "query": str(query_param).replace("'", '"')
     }
     r = requests.get(url, headers=headers, params=params, timeout=15)
     if r.status_code != 200:
@@ -58,4 +70,3 @@ def semantic_search(body: QueryBody):
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Contentstack API!"}
-
