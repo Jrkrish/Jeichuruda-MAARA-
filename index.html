@@ -16,22 +16,15 @@
 <body>
   <div class="container">
     <h1>Semantic Search</h1>
-
-    <!-- Configuration -->
     <label for="backendUrl">Backend Search API URL</label>
     <input type="url" id="backendUrl" placeholder="https://your-service.example.com/api/semantic-search" />
     <button id="saveBtn" onclick="saveConfig()" disabled>Save Configuration</button>
-
-    <!-- Search -->
     <div style="margin-top: 20px;">
       <input type="text" id="searchInput" placeholder="Enter search query..." />
       <button id="searchBtn" onclick="search()" disabled>Search</button>
     </div>
-
     <div id="results" class="results"></div>
   </div>
-
-  <!-- App SDK for in-Contentstack usage -->
   <script src="https://unpkg.com/@contentstack/app-sdk@2.1.0/dist/index.js"></script>
   <script>
     let appSdk = null;
@@ -39,8 +32,6 @@
     const searchBtn = document.getElementById('searchBtn');
     const backendUrlEl = document.getElementById('backendUrl');
     const resultsEl = document.getElementById('results');
-
-    // Try to initialize App SDK (works when embedded in Contentstack UI Locations)
     (async () => {
       try {
         if (window.ContentstackAppSdk && typeof ContentstackAppSdk.init === 'function') {
@@ -48,12 +39,10 @@
           const cfg = await appSdk.getConfig();
           if (cfg?.backendUrl) backendUrlEl.value = cfg.backendUrl;
         } else {
-          // Fallback for direct (non-Contentstack) testing
           const stored = localStorage.getItem('backendUrl');
           if (stored) backendUrlEl.value = stored;
         }
       } catch (e) {
-        console.warn('App SDK init failed, using fallback store', e);
         const stored = localStorage.getItem('backendUrl');
         if (stored) backendUrlEl.value = stored;
       } finally {
@@ -65,8 +54,6 @@
     async function saveConfig() {
       const url = backendUrlEl.value.trim();
       if (!url) { alert('Enter a backend URL'); return; }
-
-      // Save via App SDK when available; otherwise use localStorage for dev
       if (appSdk) {
         await appSdk.setConfig({ backendUrl: url });
         alert('Configuration saved to Contentstack App Config');
@@ -88,10 +75,8 @@
       resultsEl.innerHTML = '';
       const q = document.getElementById('searchInput').value.trim();
       if (!q) { resultsEl.innerHTML = '<p>Please enter a query.</p>'; return; }
-
       const url = await getBackendUrl();
       if (!url) { resultsEl.innerHTML = '<p>Please set the backend URL above.</p>'; return; }
-
       try {
         const res = await fetch(url, {
           method: 'POST',
