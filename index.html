@@ -17,7 +17,7 @@
         <!-- Configuration Section -->
         <div>
             <label for="backendUrl">Backend Search API URL:</label>
-            <input type="url" id="backendUrl" placeholder="Enter backend URL...">
+            <input type="url" id="backendUrl" placeholder="Enter full backend URL...">
             <button onclick="saveConfig()">Save Configuration</button>
         </div>
 
@@ -30,13 +30,13 @@
         <div id="results" class="results"></div>
     </div>
 
-    <!-- ✅ Load the App SDK from the correct source -->
+    <!-- ✅ Load the correct Contentstack App SDK -->
     <script src="https://unpkg.com/@contentstack/app-sdk@latest/dist/index.js"></script>
 
     <script>
         let appSdk, config;
 
-        // ✅ Initialize the SDK and load the saved config
+        // ✅ Initialize App SDK and load config
         ContentstackAppSdk.init().then(async (sdk) => {
             appSdk = sdk;
             config = await appSdk.getConfig();
@@ -45,20 +45,19 @@
             }
         });
 
-        // ✅ Save the backend URL using setConfig
+        // ✅ Save configuration using setConfig
         async function saveConfig() {
             const backendUrl = document.getElementById('backendUrl').value.trim();
             if (!backendUrl) {
-                alert('Please enter a backend URL.');
+                alert('Please enter the full backend URL.');
                 return;
             }
             await appSdk.setConfig({ backendUrl });
             alert('Configuration saved!');
-            // Optionally close the frame if opened in AppConfig location
             appSdk.location.AppConfig?.frame.close();
         }
 
-        // ✅ Perform search using the configured backend URL
+        // ✅ Search by calling the backend API
         async function search() {
             const query = document.getElementById('searchInput').value.trim();
             const resultsDiv = document.getElementById('results');
@@ -83,7 +82,6 @@
                     body: JSON.stringify({ query })
                 });
                 if (!res.ok) throw new Error('Network response was not ok');
-
                 const data = await res.json();
                 if (data.results.length === 0) {
                     resultsDiv.innerHTML = '<p>No results found.</p>';
