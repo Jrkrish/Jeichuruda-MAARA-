@@ -5,7 +5,7 @@
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
         .container { max-width: 800px; margin: 0 auto; }
-        input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; }
+        input[type="text"], input[type="url"] { width: 100%; padding: 10px; margin: 10px 0; }
         button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
         .results { margin-top: 20px; }
     </style>
@@ -13,16 +13,87 @@
 <body>
     <div class="container">
         <h1>Semantic Search</h1>
-        <input type="text" id="searchInput" placeholder="Enter search query...">
-        <button onclick="search()">Search</button>
+
+        <div>
+            <label for="backendUrl">Backend Search API URL:</label>
+            <input type="url" id="backendUrl" placeholder="Enter backend URL...">
+            <button onclick="saveConfig()">Save Configuration</button>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <input type="text" id="searchInput" placeholder="Enter search query...">
+            <button onclick="search()">Search</button>
+        </div>
+
         <div id="results" class="results"></div>
     </div>
-    
+
+    <script src="https://cdn.contentstack.io/contentstack.app.js"></script>
     <script>
-        function search() {
-            const query = document.getElementById('searchInput').value;
+        let appSdk, config;
+
+        // Initialize the SDK and load existing config
+        ContentstackAppSdk.init().then(async (sdk) => {
+            appSdk = sdk;
+            config = await appSdk.getConfig();
+            if (config && config.backendUrl) {
+                document.getElementById('backendUrl').value = config.backendUrl;
+            }
+        });
+
+        async function saveConfig() {
+            const backendUrl = document.getElementById('backendUrl').value.trim();
+            if (!backendUrl) {
+                alert('Please enter a backend URL.');
+                return;
+            }
+            await appSdk.setConfig({ backendUrl });
+            alert('Configuration saved!');
+            // Optionally close the configuration frame
+            appSdk.location.AppConfig?.frame.close();
+        }
+
+        async function search() {
+            const query = document.getElementById('searchInput').value.trim();
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '<p>Searching for: ' + query + '</p><p>Backend integration coming soon...</p>';
+            resultsDiv.innerHTML = '';
+
+            if (!query) {
+                resultsDiv.innerHTML = '<p>Please enter a query.</p>';
+                return;
+            }
+
+            // Get the latest config in case it's been updated
+            config = await appSdk.getConfig();
+
+            if (!config.backendUrl) {
+                resultsDiv.innerHTML = '<p>Please set the backend URL in the configuration above.</p>';
+                return;
+            }
+
+            try {
+                const res = await fetch(config.backendUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                if (!res.ok) throw new Error('Network response was not ok');
+
+                const data = await res.json();
+                if (data.results.length === 0) {
+                    resultsDiv.innerHTML = '<p>No results found.</p>';
+                } else {
+                    resultsDiv.innerHTML = data.results.map(r => `
+                        <div style="border-bottom: 1px solid #ccc; padding: 10px 0;">
+                            <h3>${r.title}</h3>
+                            <p>${r.summary}</p>
+                            <small>Updated at: ${r.updated_at}</small>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
         }
     </script>
 </body>
