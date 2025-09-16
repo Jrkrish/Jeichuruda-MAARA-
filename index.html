@@ -31,46 +31,65 @@
     <div id="results" class="results"></div>
   </div>
 
-  <!-- App SDK (UMD) -->
-  <script src="https://unpkg.com/@contentstack/app-sdk@latest/dist/index.js"></script>
+  <!-- App SDK for in-Contentstack usage -->
+  <script src="https://unpkg.com/@contentstack/app-sdk@2.1.0/dist/index.js"></script>
   <script>
     let appSdk = null;
-
     const saveBtn = document.getElementById('saveBtn');
     const searchBtn = document.getElementById('searchBtn');
     const backendUrlEl = document.getElementById('backendUrl');
     const resultsEl = document.getElementById('results');
 
-    // Initialize SDK and load existing config
-    ContentstackAppSdk.init()
-      .then(async (sdk) => {
-        appSdk = sdk;
-        const cfg = await appSdk.getConfig();
-        if (cfg && cfg.backendUrl) backendUrlEl.value = cfg.backendUrl;
+    // Try to initialize App SDK (works when embedded in Contentstack UI Locations)
+    (async () => {
+      try {
+        if (window.ContentstackAppSdk && typeof ContentstackAppSdk.init === 'function') {
+          appSdk = await ContentstackAppSdk.init();
+          const cfg = await appSdk.getConfig();
+          if (cfg?.backendUrl) backendUrlEl.value = cfg.backendUrl;
+        } else {
+          // Fallback for direct (non-Contentstack) testing
+          const stored = localStorage.getItem('backendUrl');
+          if (stored) backendUrlEl.value = stored;
+        }
+      } catch (e) {
+        console.warn('App SDK init failed, using fallback store', e);
+        const stored = localStorage.getItem('backendUrl');
+        if (stored) backendUrlEl.value = stored;
+      } finally {
         saveBtn.disabled = false;
         searchBtn.disabled = false;
-      })
-      .catch((e) => {
-        console.error('App SDK init failed', e);
-        resultsEl.innerHTML = '<p>Failed to initialize app SDK.</p>';
-      });
+      }
+    })();
 
     async function saveConfig() {
-      if (!appSdk) return;
       const url = backendUrlEl.value.trim();
       if (!url) { alert('Enter a backend URL'); return; }
-      await appSdk.setConfig({ backendUrl: url });
-      alert('Configuration saved');
+
+      // Save via App SDK when available; otherwise use localStorage for dev
+      if (appSdk) {
+        await appSdk.setConfig({ backendUrl: url });
+        alert('Configuration saved to Contentstack App Config');
+      } else {
+        localStorage.setItem('backendUrl', url);
+        alert('Configuration saved locally (dev fallback)');
+      }
+    }
+
+    async function getBackendUrl() {
+      if (appSdk) {
+        const cfg = await appSdk.getConfig();
+        return cfg?.backendUrl || '';
+      }
+      return localStorage.getItem('backendUrl') || '';
     }
 
     async function search() {
-      if (!appSdk) return;
       resultsEl.innerHTML = '';
       const q = document.getElementById('searchInput').value.trim();
       if (!q) { resultsEl.innerHTML = '<p>Please enter a query.</p>'; return; }
 
-      const cfg = await appSdk.getConfig();
-      const url = (cfg && cfg.backendUrl) ? cfg.backendUrl : '';
+      const url = await getBackendUrl();
       if (!url) { resultsEl.innerHTML = '<p>Please set the backend URL above.</p>'; return; }
 
       try {
