@@ -14,12 +14,14 @@
     <div class="container">
         <h1>Semantic Search</h1>
 
+        <!-- Configuration Section -->
         <div>
             <label for="backendUrl">Backend Search API URL:</label>
             <input type="url" id="backendUrl" placeholder="Enter backend URL...">
             <button onclick="saveConfig()">Save Configuration</button>
         </div>
 
+        <!-- Search Section -->
         <div style="margin-top: 20px;">
             <input type="text" id="searchInput" placeholder="Enter search query...">
             <button onclick="search()">Search</button>
@@ -28,11 +30,13 @@
         <div id="results" class="results"></div>
     </div>
 
-    <script src="https://cdn.contentstack.io/contentstack.app.js"></script>
+    <!-- ✅ Load the App SDK from the correct source -->
+    <script src="https://unpkg.com/@contentstack/app-sdk@latest/dist/index.js"></script>
+
     <script>
         let appSdk, config;
 
-        // Initialize the SDK and load existing config
+        // ✅ Initialize the SDK and load the saved config
         ContentstackAppSdk.init().then(async (sdk) => {
             appSdk = sdk;
             config = await appSdk.getConfig();
@@ -41,6 +45,7 @@
             }
         });
 
+        // ✅ Save the backend URL using setConfig
         async function saveConfig() {
             const backendUrl = document.getElementById('backendUrl').value.trim();
             if (!backendUrl) {
@@ -49,10 +54,11 @@
             }
             await appSdk.setConfig({ backendUrl });
             alert('Configuration saved!');
-            // Optionally close the configuration frame
+            // Optionally close the frame if opened in AppConfig location
             appSdk.location.AppConfig?.frame.close();
         }
 
+        // ✅ Perform search using the configured backend URL
         async function search() {
             const query = document.getElementById('searchInput').value.trim();
             const resultsDiv = document.getElementById('results');
@@ -63,7 +69,6 @@
                 return;
             }
 
-            // Get the latest config in case it's been updated
             config = await appSdk.getConfig();
 
             if (!config.backendUrl) {
