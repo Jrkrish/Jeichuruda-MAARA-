@@ -1,23 +1,34 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+import os
 from typing import List, Dict, Any
-import os, requests
+import requests
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
-# Load environment variables from Render's dashboard or environment
-API_KEY = os.getenv("CONTENTSTACK_API_KEY")
-DELIVERY_TOKEN = os.getenv("CONTENTSTACK_DELIVERY_TOKEN")
-ENVIRONMENT = os.getenv("CONTENTSTACK_ENVIRONMENT")
-BASE = os.getenv("CONTENTSTACK_BASE_URL", "https://eu-cdn.contentstack.com")
+# Env from your deployment (Render)
+API_KEY = os.getenv("CONTENTSTACK_API_KEY")                     # blt...
+DELIVERY_TOKEN = os.getenv("CONTENTSTACK_DELIVERY_TOKEN")       # csc...
+ENVIRONMENT = os.getenv("CONTENTSTACK_ENVIRONMENT", "production")
 CONTENT_TYPE = os.getenv("CS_CONTENT_TYPE", "product")
-BRANCH = "main"
+BRANCH = os.getenv("CS_BRANCH", "main")
+
+# Use EU CDN base for Delivery API because the stack is in EU region
+BASE = "https://eu-cdn.contentstack.com"  # Delivery API base (v3)
+API_VERSION = "v3"
 
 app = FastAPI()
 
-# Enable CORS for Contentstack
+# Allow requests from Contentstack app domains (adjust as needed)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://eu-app.contentstack.com", "https://app.contentstack.com"],
+    allow_origins=[
+        "https://eu-app.contentstack.com",
+        "https://app.contentstack.com",
+        "https://azure-eu-app.contentstack.com",
+        "https://gcp-eu-app.contentstack.com",
+        "*",  # loosen for initial testing; tighten for production
+    ],
+    allow_credentials=False,
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -26,12 +37,16 @@ class QueryBody(BaseModel):
     query: str
     limit: int | None = 10
 
-def contentstack_entries(q: str, limit: int) -> List[Dict[str, Any]]:
-    url = f"{BASE}/v3/content_types/{CONTENT_TYPE}/entries"
+def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
+    if not API_KEY or not DELIVERY_TOKEN:
+        raise HTTPException(status_code=500, detail="Missing API credentials")
+
+    url = f"{BASE}/{API_VERSION}/content_types/{CONTENT_TYPE}/entries"
     headers = {
         "api_key": API_KEY,
-        "access_token": DELIVERY_TOKEN
+        "access_token": DELIVERY_TOKEN,
     }
+    # Simple regex match on title or summary (published content only via Delivery API)
     query_param = {
         "$or": [
             {"title": {"$regex": q, "$options": "i"}},
@@ -42,28 +57,30 @@ def contentstack_entries(q: str, limit: int) -> List[Dict[str, Any]]:
         "environment": ENVIRONMENT,
         "branch": BRANCH,
         "limit": limit,
-        "query": str(query_param).replace("'", '"')
+        "query": str(query_param).replace("'", '"'),
     }
-    r = requests.get(url, headers=headers, params=params, timeout=15)
+    r = requests.get(url, headers=headers, params=params, timeout=20)
     if r.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"CDN error: {r.text}")
+        raise HTTPException(status_code=502, detail=f"Content Delivery error: {r.text}")
+
     data = r.json()
     results = []
     for e in data.get("entries", []):
         results.append({
             "title": e.get("title"),
-            "summary": e.get("summary") or e.get("body", "")[:180],
+            "summary": e.get("summary") or (e.get("body") or "")[:180],
             "uid": e.get("uid"),
-            "updated_at": e.get("updated_at")
+            "updated_at": e.get("updated_at"),
         })
     return results
 
 @app.post("/api/semantic-search")
 def semantic_search(body: QueryBody):
-    if not body.query.strip():
+    q = (body.query or "").strip()
+    if not q:
         return {"results": []}
-    return {"results": contentstack_entries(body.query.strip(), body.limit or 10)}
+    return {"results": query_entries(q, body.limit or 10)}
 
 @app.get("/")
-def read_root():
-    return {"message": "Contentstack semantic search API is running"}
+def root():
+    return {"ok": True, "message": "Contentstack Semantic Search API"}
