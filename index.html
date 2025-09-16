@@ -1,88 +1,101 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8" />
-    <title>Contentstack Semantic Search App</title>
-    <script src="https://unpkg.com/@contentstack/app-sdk@latest/dist/index.js"></script>
+  <meta charset="utf-8" />
+  <title>Semantic Search App</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    input[type="text"], input[type="url"] { width: 100%; padding: 10px; margin: 10px 0; }
+    button { padding: 10px 12px; background: #2b6cb0; color: #fff; border: none; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .results { margin-top: 20px; }
+    .item { border-bottom: 1px solid #ddd; padding: 10px 0; }
+  </style>
 </head>
 <body>
-    <h1>Contentstack Semantic Search</h1>
+  <div class="container">
+    <h1>Semantic Search</h1>
 
-    <div>
-        <label for="backendUrl">Backend URL:</label>
-        <input type="text" id="backendUrl" placeholder="Enter backend URL" size="50" />
-        <button id="saveBtn" onclick="saveConfig()">Save Configuration</button>
+    <!-- Configuration -->
+    <label for="backendUrl">Backend Search API URL</label>
+    <input type="url" id="backendUrl" placeholder="https://your-service.example.com/api/semantic-search" />
+    <button id="saveBtn" onclick="saveConfig()" disabled>Save Configuration</button>
+
+    <!-- Search -->
+    <div style="margin-top: 20px;">
+      <input type="text" id="searchInput" placeholder="Enter search query..." />
+      <button id="searchBtn" onclick="search()" disabled>Search</button>
     </div>
 
-    <hr>
+    <div id="results" class="results"></div>
+  </div>
 
-    <div>
-        <label for="searchInput">Search Query:</label>
-        <input type="text" id="searchInput" placeholder="Enter query" size="50" />
-        <button id="searchBtn" onclick="search()">Search</button>
-    </div>
+  <!-- App SDK (UMD) -->
+  <script src="https://unpkg.com/@contentstack/app-sdk@latest/dist/index.js"></script>
+  <script>
+    let appSdk = null;
 
-    <pre id="results"></pre>
+    const saveBtn = document.getElementById('saveBtn');
+    const searchBtn = document.getElementById('searchBtn');
+    const backendUrlEl = document.getElementById('backendUrl');
+    const resultsEl = document.getElementById('results');
 
-    <script>
-        let appSdk = null;
-        let config = {};
+    // Initialize SDK and load existing config
+    ContentstackAppSdk.init()
+      .then(async (sdk) => {
+        appSdk = sdk;
+        const cfg = await appSdk.getConfig();
+        if (cfg && cfg.backendUrl) backendUrlEl.value = cfg.backendUrl;
+        saveBtn.disabled = false;
+        searchBtn.disabled = false;
+      })
+      .catch((e) => {
+        console.error('App SDK init failed', e);
+        resultsEl.innerHTML = '<p>Failed to initialize app SDK.</p>';
+      });
 
-        const saveBtn = document.getElementById('saveBtn');
-        const searchBtn = document.getElementById('searchBtn');
+    async function saveConfig() {
+      if (!appSdk) return;
+      const url = backendUrlEl.value.trim();
+      if (!url) { alert('Enter a backend URL'); return; }
+      await appSdk.setConfig({ backendUrl: url });
+      alert('Configuration saved');
+    }
 
-        saveBtn.disabled = true;
-        searchBtn.disabled = true;
+    async function search() {
+      if (!appSdk) return;
+      resultsEl.innerHTML = '';
+      const q = document.getElementById('searchInput').value.trim();
+      if (!q) { resultsEl.innerHTML = '<p>Please enter a query.</p>'; return; }
 
-        ContentstackAppSdk.init()
-            .then(async (sdk) => {
-                appSdk = sdk;
-                config = await appSdk.getConfig();
-                if (config.backendUrl) {
-                    document.getElementById('backendUrl').value = config.backendUrl;
-                }
-                saveBtn.disabled = false;
-                searchBtn.disabled = false;
-            })
-            .catch((error) => {
-                console.error('SDK initialization failed:', error);
-            });
+      const cfg = await appSdk.getConfig();
+      const url = (cfg && cfg.backendUrl) ? cfg.backendUrl : '';
+      if (!url) { resultsEl.innerHTML = '<p>Please set the backend URL above.</p>'; return; }
 
-        async function saveConfig() {
-            const backendUrl = document.getElementById('backendUrl').value.trim();
-            if (!backendUrl) {
-                return alert('Please enter a backend URL');
-            }
-            await appSdk.setConfig({ backendUrl });
-            alert('Configuration saved!');
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q, limit: 10 })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.results || data.results.length === 0) {
+          resultsEl.innerHTML = '<p>No results found.</p>';
+          return;
         }
-
-        async function search() {
-            config = await appSdk.getConfig();
-            const { backendUrl } = config;
-            const query = document.getElementById('searchInput').value.trim();
-            const resultsDiv = document.getElementById('results');
-
-            if (!query) {
-                return alert('Please enter a query');
-            }
-            if (!backendUrl) {
-                return alert('Please set the backend URL first.');
-            }
-
-            try {
-                const response = await fetch(backendUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query })
-                });
-                if (!response.ok) throw new Error('Request failed');
-                const data = await response.json();
-                resultsDiv.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
-            }
-        }
-    </script>
+        resultsEl.innerHTML = data.results.map(r => `
+          <div class="item">
+            <h3>${r.title ?? ''}</h3>
+            <p>${r.summary ?? ''}</p>
+            <small>${r.updated_at ?? ''}</small>
+          </div>
+        `).join('');
+      } catch (err) {
+        resultsEl.innerHTML = `<p>Error: ${err.message}</p>`;
+      }
+    }
+  </script>
 </body>
 </html>
