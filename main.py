@@ -54,3 +54,8 @@ def semantic_search(body: QueryBody):
     if not body.query.strip():
         return {"results": []}
     return {"results": contentstack_entries(body.query.strip(), body.limit or 10)}
+
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the Contentstack API!"}
+
