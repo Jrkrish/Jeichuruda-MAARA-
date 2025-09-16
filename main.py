@@ -5,20 +5,17 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
-# Env from your deployment (Render)
 API_KEY = os.getenv("CONTENTSTACK_API_KEY")                     # blt...
 DELIVERY_TOKEN = os.getenv("CONTENTSTACK_DELIVERY_TOKEN")       # csc...
 ENVIRONMENT = os.getenv("CONTENTSTACK_ENVIRONMENT", "production")
 CONTENT_TYPE = os.getenv("CS_CONTENT_TYPE", "product")
 BRANCH = os.getenv("CS_BRANCH", "main")
 
-# Use EU CDN base for Delivery API because the stack is in EU region
-BASE = "https://eu-cdn.contentstack.com"  # Delivery API base (v3)
+BASE = "https://eu-cdn.contentstack.com"  # EU Delivery API base
 API_VERSION = "v3"
 
 app = FastAPI()
 
-# Allow requests from Contentstack app domains (adjust as needed)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -26,9 +23,8 @@ app.add_middleware(
         "https://app.contentstack.com",
         "https://azure-eu-app.contentstack.com",
         "https://gcp-eu-app.contentstack.com",
-        "*",  # loosen for initial testing; tighten for production
+        "*",  # relax during dev; tighten for prod
     ],
-    allow_credentials=False,
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -46,7 +42,6 @@ def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
         "api_key": API_KEY,
         "access_token": DELIVERY_TOKEN,
     }
-    # Simple regex match on title or summary (published content only via Delivery API)
     query_param = {
         "$or": [
             {"title": {"$regex": q, "$options": "i"}},
