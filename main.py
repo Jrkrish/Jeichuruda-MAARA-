@@ -5,10 +5,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
-API_KEY = os.getenv('CONTENTSTACK_API_KEY')
-DELIVERY_TOKEN = os.getenv('CONTENTSTACK_DELIVERY_TOKEN')
-ENVIRONMENT = os.getenv('CONTENTSTACK_ENVIRONMENT', 'preview')  # Use "preview"
-CONTENT_TYPE = os.getenv('CS_CONTENT_TYPE', 'product')
+API_KEY = os.getenv('CONTENTSTACK_API_KEY', 'bltdda1c327d1251b73')
+DELIVERY_TOKEN = os.getenv('CONTENTSTACK_DELIVERY_TOKEN', 'csc8234bce89440911c958c6e4')
+ENVIRONMENT = os.getenv('CONTENTSTACK_ENVIRONMENT', 'preview')
+CONTENT_TYPE = os.getenv('CS_CONTENT_TYPE', 'page')
 BRANCH = os.getenv('CS_BRANCH', 'main')
 BASE = os.getenv('CONTENTSTACK_BASE_URL', 'https://eu-cdn.contentstack.com')
 API_VERSION = "v3"
@@ -17,7 +17,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For dev; restrict for prod
+    allow_origins=["https://eu-app.contentstack.com", "https://app.contentstack.com", "https://azure-eu-app.contentstack.com", "https://gcp-eu-app.contentstack.com", "*"],
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -27,8 +27,9 @@ class QueryBody(BaseModel):
     limit: int | None = 10
 
 def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
-    if not API_KEY or not DELIVERY_TOKEN or not ENVIRONMENT:
-        raise HTTPException(status_code=500, detail="Missing API credentials or environment")
+    if not API_KEY or not DELIVERY_TOKEN:
+        raise HTTPException(status_code=500, detail="Missing API credentials")
+
     url = f"{BASE}/{API_VERSION}/content_types/{CONTENT_TYPE}/entries"
     headers = {
         "api_key": API_KEY,
@@ -41,14 +42,15 @@ def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
         ]
     }
     params = {
-        "environment": ENVIRONMENT,  # This MUST be "preview"
+        "environment": ENVIRONMENT,
         "branch": BRANCH,
         "limit": limit,
-        "query": str(query_param).replace("'", '"')
+        "query": str(query_param).replace("'", '"'),
     }
-    r = requests.get(url, headers=headers, params=params, timeout=15)
+    r = requests.get(url, headers=headers, params=params, timeout=20)
     if r.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Content Delivery error: {r.text}")
+
     data = r.json()
     results = []
     for e in data.get("entries", []):
