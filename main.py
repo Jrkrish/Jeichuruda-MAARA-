@@ -5,26 +5,19 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
-API_KEY = os.getenv("CONTENTSTACK_API_KEY")                     # blt...
-DELIVERY_TOKEN = os.getenv("CONTENTSTACK_DELIVERY_TOKEN")       # csc...
-ENVIRONMENT = os.getenv("CONTENTSTACK_ENVIRONMENT", "production")
-CONTENT_TYPE = os.getenv("CS_CONTENT_TYPE", "product")
-BRANCH = os.getenv("CS_BRANCH", "main")
-
-BASE = "https://eu-cdn.contentstack.com"  # EU Delivery API base
+API_KEY = os.getenv('CONTENTSTACK_API_KEY')
+DELIVERY_TOKEN = os.getenv('CONTENTSTACK_DELIVERY_TOKEN')
+ENVIRONMENT = os.getenv('CONTENTSTACK_ENVIRONMENT', 'preview')  # Use "preview"
+CONTENT_TYPE = os.getenv('CS_CONTENT_TYPE', 'product')
+BRANCH = os.getenv('CS_BRANCH', 'main')
+BASE = os.getenv('CONTENTSTACK_BASE_URL', 'https://eu-cdn.contentstack.com')
 API_VERSION = "v3"
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://eu-app.contentstack.com",
-        "https://app.contentstack.com",
-        "https://azure-eu-app.contentstack.com",
-        "https://gcp-eu-app.contentstack.com",
-        "*",  # relax during dev; tighten for prod
-    ],
+    allow_origins=["*"],  # For dev; restrict for prod
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -34,9 +27,8 @@ class QueryBody(BaseModel):
     limit: int | None = 10
 
 def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
-    if not API_KEY or not DELIVERY_TOKEN:
-        raise HTTPException(status_code=500, detail="Missing API credentials")
-
+    if not API_KEY or not DELIVERY_TOKEN or not ENVIRONMENT:
+        raise HTTPException(status_code=500, detail="Missing API credentials or environment")
     url = f"{BASE}/{API_VERSION}/content_types/{CONTENT_TYPE}/entries"
     headers = {
         "api_key": API_KEY,
@@ -49,15 +41,14 @@ def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
         ]
     }
     params = {
-        "environment": ENVIRONMENT,
+        "environment": ENVIRONMENT,  # This MUST be "preview"
         "branch": BRANCH,
         "limit": limit,
-        "query": str(query_param).replace("'", '"'),
+        "query": str(query_param).replace("'", '"')
     }
-    r = requests.get(url, headers=headers, params=params, timeout=20)
+    r = requests.get(url, headers=headers, params=params, timeout=15)
     if r.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Content Delivery error: {r.text}")
-
     data = r.json()
     results = []
     for e in data.get("entries", []):
