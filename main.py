@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 import os, requests
 
+# Load environment variables from Render's dashboard or environment
 API_KEY = os.getenv("CONTENTSTACK_API_KEY")
 DELIVERY_TOKEN = os.getenv("CONTENTSTACK_DELIVERY_TOKEN")
 ENVIRONMENT = os.getenv("CONTENTSTACK_ENVIRONMENT")
@@ -13,14 +14,10 @@ BRANCH = "main"
 
 app = FastAPI()
 
-# ✅ Enable CORS for Contentstack UI
+# Enable CORS for Contentstack
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://eu-app.contentstack.com",
-        "https://app.contentstack.com",
-        "https://azure-na-app.contentstack.com"
-    ],
+    allow_origins=["https://eu-app.contentstack.com", "https://app.contentstack.com"],
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -69,4 +66,4 @@ def semantic_search(body: QueryBody):
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Contentstack API!"}
+    return {"message": "Contentstack semantic search API is running"}
