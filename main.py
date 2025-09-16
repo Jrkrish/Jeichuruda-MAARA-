@@ -17,7 +17,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://eu-app.contentstack.com", "https://app.contentstack.com", "https://azure-eu-app.contentstack.com", "https://gcp-eu-app.contentstack.com", "*"],
+    allow_origins=["*"],
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
