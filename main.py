@@ -1,4 +1,5 @@
 import os
+import re
 from typing import List, Dict, Any
 import requests
 from fastapi import FastAPI, HTTPException
@@ -8,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 API_KEY = os.getenv('CONTENTSTACK_API_KEY', 'bltdda1c327d1251b73')
 DELIVERY_TOKEN = os.getenv('CONTENTSTACK_DELIVERY_TOKEN', 'csc8234bce89440911c958c6e4')
 ENVIRONMENT = os.getenv('CONTENTSTACK_ENVIRONMENT', 'preview')
-CONTENT_TYPE = os.getenv('CS_CONTENT_TYPE', 'Product')  # Changed to 'product'
+CONTENT_TYPE = os.getenv('CS_CONTENT_TYPE', 'Product')
 BRANCH = os.getenv('CS_BRANCH', 'main')
 BASE = os.getenv('CONTENTSTACK_BASE_URL', 'https://eu-cdn.contentstack.com')
 API_VERSION = "v3"
@@ -26,6 +27,15 @@ class QueryBody(BaseModel):
     query: str
     limit: int | None = 10
 
+def build_contentstack_regex(query: str) -> str:
+    # Escape regex special chars except * (as wildcard for Contentstack)
+    escaped = re.escape(query.strip())
+    # Replace escaped * with regex wildcard and append * for prefix matching
+    regex_query = escaped.replace(r'\\*', '.*')
+    if not regex_query.endswith('.*'):
+        regex_query += '.*'
+    return regex_query
+
 def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
     if not API_KEY or not DELIVERY_TOKEN:
         raise HTTPException(status_code=500, detail="Missing API credentials")
@@ -35,10 +45,11 @@ def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
         "api_key": API_KEY,
         "access_token": DELIVERY_TOKEN,
     }
+    regex_query = build_contentstack_regex(q)
     query_param = {
         "$or": [
-            {"title": {"$regex": q, "$options": "i"}},
-            {"summary": {"$regex": q, "$options": "i"}}
+            {"title": {"$regex": regex_query, "$options": "i"}},
+            {"summary": {"$regex": regex_query, "$options": "i"}}
         ]
     }
     params = {
