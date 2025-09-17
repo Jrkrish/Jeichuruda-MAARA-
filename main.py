@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 API_KEY = os.getenv('CONTENTSTACK_API_KEY', 'bltdda1c327d1251b73')
 DELIVERY_TOKEN = os.getenv('CONTENTSTACK_DELIVERY_TOKEN', 'csc8234bce89440911c958c6e4')
 ENVIRONMENT = os.getenv('CONTENTSTACK_ENVIRONMENT', 'preview')
-CONTENT_TYPE = os.getenv('CS_CONTENT_TYPE', 'product')  # Changed to 'product'
+CONTENT_TYPE = os.getenv('CS_CONTENT_TYPE', 'Product')  # Changed to 'product'
 BRANCH = os.getenv('CS_BRANCH', 'main')
 BASE = os.getenv('CONTENTSTACK_BASE_URL', 'https://eu-cdn.contentstack.com')
 API_VERSION = "v3"
