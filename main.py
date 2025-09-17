@@ -11,7 +11,7 @@ DELIVERY_TOKEN = os.getenv('CONTENTSTACK_DELIVERY_TOKEN', 'csc8234bce89440911c95
 ENVIRONMENT = os.getenv('CONTENTSTACK_ENVIRONMENT', 'preview')
 CONTENT_TYPE = os.getenv('CS_CONTENT_TYPE', 'Product')
 BRANCH = os.getenv('CS_BRANCH', 'main')
-BASE ==os.getenv('CONTENTSTACK_BASE_URL', 'https://eu-cdn.contentstack.com')
+BASE = os.getenv('CONTENTSTACK_BASE_URL', 'https://eu-cdn.contentstack.com')
 API_VERSION = "v3"
 
 app = FastAPI()
