@@ -11,7 +11,7 @@ DELIVERY_TOKEN = os.getenv('CONTENTSTACK_DELIVERY_TOKEN', 'csc8234bce89440911c95
 ENVIRONMENT = os.getenv('CONTENTSTACK_ENVIRONMENT', 'preview')
 CONTENT_TYPE = os.getenv('CS_CONTENT_TYPE', 'Product')
 BRANCH = os.getenv('CS_BRANCH', 'main')
-BASE = os.getenv('CONTENTSTACK_BASE_URL', 'https://eu-cdn.contentstack.com')
+BASE ==os.getenv('CONTENTSTACK_BASE_URL', 'https://eu-cdn.contentstack.com')
 API_VERSION = "v3"
 
 app = FastAPI()
@@ -27,14 +27,12 @@ class QueryBody(BaseModel):
     query: str
     limit: int | None = 10
 
-class ReindexBody(BaseModel):
+class ReindexRequest(BaseModel):
     secret: str
 
 def build_contentstack_regex(query: str) -> str:
-    # Escape regex special chars except * (as wildcard for Contentstack)
     escaped = re.escape(query.strip())
-    # Replace escaped * with regex wildcard and append * for prefix matching
-    regex_query = escaped.replace(r'\\*', '.*')
+    regex_query = escaped.replace(r'\*', '.*')
     if not regex_query.endswith('.*'):
         regex_query += '.*'
     return regex_query
@@ -42,7 +40,6 @@ def build_contentstack_regex(query: str) -> str:
 def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
     if not API_KEY or not DELIVERY_TOKEN:
         raise HTTPException(status_code=500, detail="Missing API credentials")
-
     url = f"{BASE}/{API_VERSION}/content_types/{CONTENT_TYPE}/entries"
     headers = {
         "api_key": API_KEY,
@@ -64,7 +61,6 @@ def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
     r = requests.get(url, headers=headers, params=params, timeout=20)
     if r.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Content Delivery error: {r.text}")
-
     data = r.json()
     results = []
     for e in data.get("entries", []):
@@ -78,7 +74,8 @@ def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
 
 def start_reindex_job():
     # Placeholder for reindexing logic
-    # Implement the function to rebuild your vector index here
+    # Implement the function to rebuild your search index here
+    # Example: Fetch all entries and update vector index in a search service (e.g., Pinecone, Elasticsearch)
     pass
 
 @app.post("/api/semantic-search")
@@ -88,13 +85,13 @@ def semantic_search(body: QueryBody):
         return {"results": []}
     return {"results": query_entries(q, body.limit or 10)}
 
-@app.post("/api/full-reindex")
-def full_reindex(body: ReindexBody):
-    if body.secret != os.getenv("REINDEX_SECRET"):
+@app.post("/api/full_reindex")
+def full_reindex(req: ReindexRequest):
+    if req.secret != os.getenv("SECRET_KEY", "your_secret_here"):
         raise HTTPException(status_code=403, detail="Forbidden")
-    # Call the function to rebuild the vector index
+    # Trigger reindexing logic
     start_reindex_job()
-    return {"ok": True}
+    return {"status": "started"}
 
 @app.get("/")
 def root():
