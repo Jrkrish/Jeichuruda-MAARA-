@@ -27,6 +27,9 @@ class QueryBody(BaseModel):
     query: str
     limit: int | None = 10
 
+class ReindexBody(BaseModel):
+    secret: str
+
 def build_contentstack_regex(query: str) -> str:
     # Escape regex special chars except * (as wildcard for Contentstack)
     escaped = re.escape(query.strip())
@@ -73,12 +76,25 @@ def query_entries(q: str, limit: int) -> List[Dict[str, Any]]:
         })
     return results
 
+def start_reindex_job():
+    # Placeholder for reindexing logic
+    # Implement the function to rebuild your vector index here
+    pass
+
 @app.post("/api/semantic-search")
 def semantic_search(body: QueryBody):
     q = (body.query or "").strip()
     if not q:
         return {"results": []}
     return {"results": query_entries(q, body.limit or 10)}
+
+@app.post("/api/full-reindex")
+def full_reindex(body: ReindexBody):
+    if body.secret != os.getenv("REINDEX_SECRET"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    # Call the function to rebuild the vector index
+    start_reindex_job()
+    return {"ok": True}
 
 @app.get("/")
 def root():
